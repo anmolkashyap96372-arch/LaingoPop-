@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>LaingoPop Admin</title>
+<style>
+:root{--bg:#0A0F1E;--card:#121A33;--line:#26315A;--ink:#EEF2FF;--mut:#8A96C4;--brand:#3B4EFF;--ok:#3BE38A;--bad:#FF6B57}
+*{box-sizing:border-box}body{margin:0 auto;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,sans-serif;padding:16px;max-width:560px}
+h1{font-size:22px;margin:4px 0 14px}h2{font-size:15px;color:var(--mut);margin:22px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+input,select,textarea,button{width:100%;font:inherit;color:inherit;background:#0C1330;border:1.5px solid var(--line);border-radius:12px;padding:12px;margin-top:8px}
+button{background:var(--brand);border:0;font-weight:700;cursor:pointer}button.ghost{background:transparent;border:1.5px solid var(--line)}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}.row:first-child{border-top:0}
+.row small{color:var(--mut);display:block;word-break:break-all}.row button{width:auto;margin:0;padding:8px 12px}
+#msg{min-height:22px;margin-top:10px;font-weight:600}.ok{color:var(--ok)}.err{color:var(--bad)}.hide{display:none}
+</style></head><body>
+<h1>🔐 LaingoPop Admin</h1>
+<div id="login" class="card"><label for="key">Admin key</label><input id="key" type="password" autocomplete="current-password" placeholder="ADMIN_KEY from your server"><button id="go">Unlock</button></div>
+<div id="app" class="hide">
+<div class="card"><b>Activate Pro</b>
+<textarea id="paste" rows="3" placeholder="Paste the buyer's WhatsApp message or device ID (lp-…)"></textarea>
+<select id="plan"><option value="yearly">Yearly · 366 days</option><option value="monthly">Monthly · 31 days</option><option value="trial">7-day pass</option></select>
+<button id="act">Activate Pro</button></div>
+<h2>Pro users</h2><div class="card" id="list">Loading…</div>
+<button class="ghost" id="out" style="margin-top:14px">Lock panel</button></div>
+<div id="msg"></div>
+<script>
+const $=id=>document.getElementById(id);let K=sessionStorage.getItem('lpk')||'';
+const say=(t,ok)=>{$('msg').textContent=t;$('msg').className=ok?'ok':'err'};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(p,b){const r=await fetch(p,{method:b?'POST':'GET',headers:{'x-admin-key':K,'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Error '+r.status);return j}
+async function load(){const l=await api('/api/admin/list');$('login').classList.add('hide');$('app').classList.remove('hide');
+$('list').innerHTML=l.length?l.map(u=>{const d=Math.ceil((u.until-Date.now())/864e5);return '<div class="row"><div><b>'+esc(u.plan)+'</b> · '+(d>0?d+' days left':'<span class="err">expired</span>')+'<small>'+esc(u.cid)+'</small></div><button class="ghost" data-r="'+esc(u.cid)+'">Revoke</button></div>'}).join(''):'No Pro users yet.'}
+$('go').onclick=async()=>{K=$('key').value.trim();try{await load();sessionStorage.setItem('lpk',K);say('')}catch(e){say(e.message)}};
+$('act').onclick=async()=>{const m=/lp-[\w-]{8,64}/.exec($('paste').value);if(!m)return say('No device ID (lp-…) found in that text');try{await api('/api/admin/grant',{cid:m[0],plan:$('plan').value});say('Pro activated for '+m[0],true);$('paste').value='';load()}catch(e){say(e.message)}};
+$('list').onclick=async e=>{const c=e.target.dataset&&e.target.dataset.r;if(!c||!confirm('Revoke Pro for this device?'))return;try{await api('/api/admin/revoke',{cid:c});say('Revoked',true);load()}catch(x){say(x.message)}};
+$('out').onclick=()=>{sessionStorage.removeItem('lpk');location.reload()};
+if(K)load().catch(()=>sessionStorage.removeItem('lpk'));
+</script></body></html>
